@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rung Chuông Vàng - Hóa Học 12 (Chương 3)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        window.FB = { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot };
+    </script>
+    <style>
+        body { 
+            background: #081229;
+            background: radial-gradient(circle at 50% -20%, #1e3a8a 0%, #081229 70%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            color: white; 
+            height: 100vh;
+            overflow: hidden;
+        }
+        .student-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .student-btn:active { transform: scale(0.96); }
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #334155; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        
+        .timer-circle {
+            transition: stroke-dashoffset 1s linear;
+        }
+    </style>
+</head>
+<body>
+    <div id="root" class="h-full"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Bộ 12 câu hỏi ôn tập toàn bộ Chương 3: Hợp chất chứa Nitrogen - Hóa 12 (Kết nối tri thức)
+        // Độ khó tăng dần từ Nhận biết -> Thông hiểu -> Vận dụng -> Câu Chuông Vàng
+        const QUESTIONS = [
+            { 
+                q: "Chất khí nào sau đây là nguyên nhân chính gây nên mùi tanh của cá (nhập tên hoặc công thức)?", 
+                a: "Trimethylamine - (CH3)3N", 
+                keywords: ["trimethylamine", "trimetylamin", "(ch3)3n", "ch33n", "c3h9n"],
+                hint: "Ví dụ: trimethylamine hoặc (CH3)3N"
+            },
+            { 
+                q: "Hợp chất C6H5NH2 có tên thông thường là gì?", 
+                a: "Aniline (Anilin)", 
+                keywords: ["aniline", "anilin", "phenylamine"],
+                hint: "Nhập tên thông thường của C6H5NH2..."
+            },
+            { 
+                q: "Nhỏ vài giọt dung dịch aniline vào ống nghiệm đựng nước bromine thì xuất hiện kết tủa màu gì?", 
+                a: "Màu trắng (2,4,6-tribromoaniline)", 
+                keywords: ["trắng", "kết tủa trắng", "màu trắng"],
+                hint: "Ví dụ: trắng, vàng, xanh, nâu đỏ..."
+            },
+            { 
+                q: "Trong các đồng phân cấu tạo của các amine có công thức phân tử C3H9N, có bao nhiêu amine bậc hai?", 
+                a: "1 đồng phân (CH3-NH-C2H5: ethylmethylamine)", 
+                keywords: ["1", "một", "01"],
+                hint: "Nhập số lượng đồng phân (ví dụ: 1, 2, 3...)"
+            },
+            { 
+                q: "Amino acid đơn giản nhất có công thức H2N-CH2-COOH có tên thông thường (hoặc kí hiệu 3 chữ cái) là gì?", 
+                a: "Glycine (Gly)", 
+                keywords: ["glycine", "gly", "glyxin"],
+                hint: "Ví dụ: Glycine hoặc Gly..."
+            },
+            { 
+                q: "Ở điều kiện thường, các amino acid tồn tại ở trạng thái rắn và chủ yếu ở dạng ion nào?", 
+                a: "Ion lưỡng cực", 
+                keywords: ["lưỡng cực", "ion lưỡng cực"],
+                hint: "Ion dương, ion âm hay ion lưỡng cực?"
+            },
+            { 
+                q: "Các peptide có từ 2 liên kết peptide trở lên (từ tripeptide trở lên) tác dụng với thuốc thử biuret tạo dung dịch có màu gì đặc trưng?", 
+                a: "Màu tím", 
+                keywords: ["tím", "màu tím", "xanh tím"],
+                hint: "Ví dụ: xanh lam, tím, vàng..."
+            },
+            { 
+                q: "Nhỏ dung dịch nitric acid (HNO3) đặc vào ống nghiệm đựng dung dịch lòng trắng trứng thì tạo thành sản phẩm rắn có màu gì?", 
+                a: "Màu vàng", 
+                keywords: ["vàng", "màu vàng", "kết tủa vàng"],
+                hint: "Nhập màu sắc quan sát được..."
+            },
+            { 
+                q: "Ở pH ≈ 6, glycine tồn tại chủ yếu ở dạng ion lưỡng cực. Nếu đặt trong điện trường ở pH < 6, glycine sẽ di chuyển về điện cực nào?", 
+                a: "Cực âm (-)", 
+                keywords: ["âm", "cực âm", "-", "cathode", "catot"],
+                hint: "Cực âm (-) hay Cực dương (+)?"
+            },
+            { 
+                q: "Trùng ngưng ε-aminocaproic acid (6-aminohexanoic acid) thu được polymer dùng để sản xuất tơ nào?", 
+                a: "Tơ capron (Polycaproamide)", 
+                keywords: ["capron", "tơ capron", "polycaproamide", "nylon-6", "nilon-6"],
+                hint: "Ví dụ: tơ capron, tơ nitron, tơ tằm..."
+            },
+            { 
+                q: "Trong phân tử tetrapeptide mạch hở Ala-Gly-Glu-Val có chứa bao nhiêu liên kết peptide (-CO-NH-)?", 
+                a: "3 liên kết peptide", 
+                keywords: ["3", "ba", "03"],
+                hint: "Nhập một con số..."
+            },
+            { 
+                q: "🔔 CÂU CHUÔNG VÀNG: Thủy phân không hoàn toàn tetrapeptide mạch hở Ala-Gly-Glu-Val có thể thu được tối đa bao nhiêu loại peptide nhỏ hơn (gồm cả dipeptide và tripeptide)?", 
+                a: "5 peptide (3 dipeptide: Ala-Gly, Gly-Glu, Glu-Val và 2 tripeptide: Ala-Gly-Glu, Gly-Glu-Val)", 
+                keywords: ["5", "năm", "05"],
+                hint: "Tính tổng số dipeptide và tripeptide thu được..."
+            }
+        ];
+
+        const TIME_LIMIT = 20;
+
+        // Chuẩn hóa chuỗi tiếng Việt để so sánh tên và đáp án chính xác
+        const normalizeText = (str) => {
+            if (!str) return "";
+            return str.toString().trim().toLowerCase().replace(/\s+/g, ' ');
+        };
+
+        const checkAnswerCorrect = (userAns, questionObj) => {
+            const cleanAns = normalizeText(userAns);
+            if (!cleanAns) return false;
+            return questionObj.keywords.some(kw => {
+                const cleanKw = normalizeText(kw);
+                if (cleanKw.length <= 2) {
+                    const words = cleanAns.split(/[\s,().+-]+/);
+                    return cleanAns === cleanKw || words.includes(cleanKw);
+                }
+                return cleanAns.includes(cleanKw);
+            });
+        };
+
+        const DEFAULT_STATE = {
+            isSetup: true,
+            currentQ: 0,
+            gameState: 'ready', // 'ready' | 'running' | 'locked'
+            timeLeft: TIME_LIMIT,
+            students: [],
+            answers: {}, // { studentId: "text" }
+            evalOverrides: {} // { studentId: boolean }
+        };
+
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [dbRef, setDbRef] = useState(null);
+            const [cloudState, setCloudState] = useState(DEFAULT_STATE);
+            
+            // Quản lý vai trò trên màn hình: 'select' | 'teacher' | 'student_login' | 'student_play'
+            const [role, setRole] = useState('select');
+            const [studentInput, setStudentInput] = useState("Nguyễn Văn An\nTrần Thị Bình\nLê Hoàng Châu\nPhạm Minh Dũng\nHoàng Bảo Ngọc\nĐỗ Gia Huy\nVũ Phương Thảo\nĐặng Quốc Khánh");
+            
+            // State phía Học sinh
+            const [loginName, setLoginName] = useState("");
+            const [loginError, setLoginError] = useState("");
+            const [currentStudentId, setCurrentStudentId] = useState(null);
+            const [myAnswer, setMyAnswer] = useState("");
+            const [submittedAnswer, setSubmittedAnswer] = useState("");
+
+            // State hỗ trợ Giả lập / Xem thử Học sinh ngay trên máy Giáo viên
+            const [previewStudentMode, setPreviewStudentMode] = useState(false);
+
+            // Khởi tạo kết nối đồng bộ thời gian thực
+            useEffect(() => {
+                let unsubscribe = null;
+                const initFirebase = async () => {
+                    try {
+                        if (!window.FB || typeof __firebase_config === 'undefined') return;
+                        const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, doc, setDoc, getDoc, onSnapshot } = window.FB;
+                        const firebaseConfig = JSON.parse(__firebase_config);
+                        const app = initializeApp(firebaseConfig);
+                        const auth = getAuth(app);
+                        const db = getFirestore(app);
+                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+
+                        onAuthStateChanged(auth, async (currUser) => {
+                            if (!currUser) return;
+                            setUser(currUser);
+                            const roomDoc = doc(db, 'artifacts', appId, 'public', 'data', 'rungchuongvang_rooms', 'room_hoa12_chuong3');
+                            setDbRef(roomDoc);
+
+                            const snap = await getDoc(roomDoc);
+                            if (!snap.exists()) {
+                                await setDoc(roomDoc, DEFAULT_STATE);
+                            }
+
+                            unsubscribe = onSnapshot(roomDoc, (docSnap) => {
+                                if (docSnap.exists()) {
+                                    setCloudState(docSnap.data());
+                                }
+                            }, (err) => console.error("Sync error:", err));
+                        });
+                    } catch (e) {
+                        console.error("Offline mode fallback:", e);
+                    }
+                };
+                initFirebase();
+                return () => { if (unsubscribe) unsubscribe(); };
+            }, []);
+
+            // Hàm cập nhật trạng thái chung (lên Cloud và Local)
+            const updateGameState = async (newStatePartial) => {
+                const updated = { ...cloudState, ...newStatePartial };
+                setCloudState(updated);
+                if (dbRef && user && window.FB) {
+                    try {
+                        await window.FB.setDoc(dbRef, updated, { merge: true });
+                    } catch (err) {
+                        console.error("Update error:", err);
+                    }
+                }
+            };
+
+            // Đồng hồ đếm ngược của Giáo viên
+            useEffect(() => {
+                if (role !== 'teacher') return;
+                let timer;
+                if (cloudState.gameState === 'running' && cloudState.timeLeft > 0) {
+                    timer = setInterval(() => {
+                        updateGameState({ timeLeft: Math.max(0, cloudState.timeLeft - 1) });
+                    }, 1000);
+                }
+                return () => clearInterval(timer);
+            }, [cloudState.gameState, cloudState.timeLeft, role]);
+
+            // Reset ô nhập đáp án của học sinh khi sang câu hỏi mới
+            useEffect(() => {
+                setMyAnswer("");
+                setSubmittedAnswer("");
+            }, [cloudState.currentQ]);
+
+            // Xác định trạng thái Đúng / Sai của 1 học sinh ở câu hiện tại
+            const isStudentCorrect = (studentId) => {
+                if (cloudState.evalOverrides && cloudState.evalOverrides[studentId] !== undefined) {
+                    return cloudState.evalOverrides[studentId];
+                }
+                const ans = (cloudState.answers && cloudState.answers[studentId]) || "";
+                return checkAnswerCorrect(ans, QUESTIONS[cloudState.currentQ]);
+            };
+
+            // Thiết lập danh sách lớp từ Giáo viên
+            const handleStartSetup = () => {
+                const names = studentInput.split('\n').map(n => n.trim()).filter(n => n !== "");
+                if (names.length === 0) return;
+                const initialStudents = names.map((name, i) => ({
+                    id: 'hs_' + (i + 1),
+                    num: i + 1,
+                    name: name,
+                    score: 0,
+                    active: true,
+                    joined: false
+                }));
+                updateGameState({
+                    isSetup: false,
+                    currentQ: 0,
+                    gameState: 'ready',
+                    timeLeft: TIME_LIMIT,
+                    students: initialStudents,
+                    answers: {},
+                    evalOverrides: {}
+                });
+                setRole('teacher');
+            };
+
+            // Học sinh đăng nhập bằng Tên
+            const handleStudentLogin = (e) => {
+                e.preventDefault();
+                setLoginError("");
+                if (cloudState.isSetup || !cloudState.students || cloudState.students.length === 0) {
+                    setLoginError("Giáo viên chưa khởi tạo danh sách lớp! Vui lòng đợi giáo viên bấm Bắt đầu.");
+                    return;
+                }
+                const cleanInput = normalizeText(loginName);
+                const found = cloudState.students.find(s => normalizeText(s.name) === cleanInput);
+                if (!found) {
+                    setLoginError("Tên của em không có trong danh sách lớp của giáo viên cung cấp! Hãy kiểm tra lại dấu và chính tả.");
+                    return;
+                }
+                const updatedStudents = cloudState.students.map(s => s.id === found.id ? { ...s, joined: true } : s);
+                updateGameState({ students: updatedStudents });
+                setCurrentStudentId(found.id);
+                setRole('student_play');
+            };
+
+            // Học sinh gửi đáp án
+            const handleStudentSubmitAnswer = (e) => {
+                e.preventDefault();
+                if (!currentStudentId || cloudState.gameState !== 'running' || cloudState.timeLeft === 0) return;
+                const trimmed = myAnswer.trim();
+                if (!trimmed) return;
+                const newAnswers = { ...(cloudState.answers || {}), [currentStudentId]: trimmed };
+                updateGameState({ answers: newAnswers });
+                setSubmittedAnswer(trimmed);
+            };
+
+            // Giáo viên: Bắt đầu câu hỏi
+            const startQuestion = () => {
+                updateGameState({
+                    gameState: 'running',
+                    timeLeft: TIME_LIMIT,
+                    answers: {},
+                    evalOverrides: {}
+                });
+            };
+
+            // Giáo viên: Chốt câu & Chấm đáp án tự động (+10 điểm cho HS trên sàn trả lời đúng)
+            const lockAnswer = () => {
+                const updatedStudents = cloudState.students.map(s => {
+                    if (!s.active) return s;
+                    const correct = isStudentCorrect(s.id);
+                    return correct ? { ...s, score: s.score + 10 } : s;
+                });
+                updateGameState({
+                    gameState: 'locked',
+                    students: updatedStudents
+                });
+            };
+
+            // Giáo viên: Xóa tên (Loại) những học sinh trả lời sai ở câu hiện tại
+            const eliminateWrongStudents = () => {
+                const updatedStudents = cloudState.students.map(s => {
+                    if (!s.active) return s;
+                    const correct = isStudentCorrect(s.id);
+                    return correct ? s : { ...s, active: false };
+                });
+                updateGameState({ students: updatedStudents });
+            };
+
+            // Giáo viên: Qua câu hỏi tiếp theo
+            const nextQuestion = () => {
+                if (cloudState.currentQ < QUESTIONS.length - 1) {
+                    updateGameState({
+                        currentQ: cloudState.currentQ + 1,
+                        gameState: 'ready',
+                        timeLeft: TIME_LIMIT,
+                        answers: {},
+                        evalOverrides: {}
+                    });
+                }
+            };
+
+            // Giáo viên: Nhấp vào ô học sinh
+            // - Khi đã chốt đáp án (locked): Đổi trạng thái Đúng (Xanh) <-> Sai (Xám) nếu máy chấm chưa chuẩn
+            // - Khi chưa chốt đáp án: Loại hoặc Khôi phục trực tiếp học sinh
+            const handleTeacherClickStudent = (student) => {
+                if (cloudState.gameState === 'locked' && student.active) {
+                    const currentCorrect = isStudentCorrect(student.id);
+                    const nextCorrect = !currentCorrect;
+                    const newOverrides = { ...(cloudState.evalOverrides || {}), [student.id]: nextCorrect };
+                    const scoreDiff = nextCorrect ? 10 : -10;
+                    const updatedStudents = cloudState.students.map(s => 
+                        s.id === student.id ? { ...s, score: Math.max(0, s.score + scoreDiff) } : s
+                    );
+                    updateGameState({
+                        evalOverrides: newOverrides,
+                        students: updatedStudents
+                    });
+                } else {
+                    const updatedStudents = cloudState.students.map(s => 
+                        s.id === student.id ? { ...s, active: !s.active } : s
+                    );
+                    updateGameState({ students: updatedStudents });
+                }
+            };
+
+            // Cứu trợ toàn bộ học sinh trở lại sàn
+            const rescueAll = () => {
+                const updatedStudents = cloudState.students.map(s => ({ ...s, active: true }));
+                updateGameState({ students: updatedStudents });
+            };
+
+            const students = cloudState.students || [];
+            const activeCount = students.filter(s => s.active).length;
+            const currentQ = cloudState.currentQ || 0;
+            const gameState = cloudState.gameState || 'ready';
+            const timeLeft = cloudState.timeLeft !== undefined ? cloudState.timeLeft : TIME_LIMIT;
+            const answers = cloudState.answers || {};
+
+            // Đếm số HS trên sàn trả lời đúng / sai khi chốt câu
+            const activeCorrectCount = students.filter(s => s.active && isStudentCorrect(s.id)).length;
+            const activeWrongCount = students.filter(s => s.active && !isStudentCorrect(s.id)).length;
+            const answeredCount = students.filter(s => s.active && answers[s.id]).length;
+
+            // =========================================================================
+            // 1. MÀN HÌNH CHỌN VAI TRÒ (GIÁO VIÊN / HỌC SINH)
+            // =========================================================================
+            if (role === 'select') {
+                return (
+                    <div className="h-full flex items-center justify-center p-4">
+                        <div className="bg-[#0b132c] p-8 rounded-2xl border border-blue-800/70 shadow-2xl w-full max-w-3xl text-center animate-fade-in">
+                            <div className="text-6xl mb-3 animate-bounce">🔔</div>
+                            <h1 className="text-4xl font-black text-yellow-400 tracking-wide mb-2">RUNG CHUÔNG VÀNG</h1>
+                            <p className="text-sky-300 font-medium mb-8">Hóa Học 12 (Kết Nối Tri Thức) • Ôn tập Chương 3: Hợp Chất Chứa Nitrogen</p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Cổng Giáo Viên */}
+                                <div className="bg-slate-900/90 border-2 border-yellow-500/50 hover:border-yellow-400 rounded-2xl p-6 flex flex-col justify-between transition-all hover:scale-[1.02] shadow-lg">
+                                    <div>
+                                        <div className="text-5xl mb-3">👨‍🏫</div>
+                                        <h2 className="text-2xl font-bold text-yellow-400 mb-2">Dành cho Giáo Viên</h2>
+                                        <p className="text-gray-400 text-sm leading-relaxed mb-6">
+                                            Tạo danh sách lớp, điều khiển câu hỏi, theo dõi đáp án của từng học sinh, tự động chấm Đúng (Xanh) / Sai (Xám) và loại học sinh trả lời sai.
+                                        </p>
+                                    </div>
+                                    <button 
+                                        onClick={() => setRole('teacher')}
+                                        className="w-full py-3.5 bg-yellow-500 hover:bg-yellow-400 text-black font-black rounded-xl shadow-[0_0_15px_rgba(250,204,21,0.4)] transition-all"
+                                    >
+                                        Vào Bảng Điều Khiển GV
+                                    </button>
+                                </div>
+
+                                {/* Cổng Học Sinh */}
+                                <div className="bg-slate-900/90 border-2 border-sky-500/50 hover:border-sky-400 rounded-2xl p-6 flex flex-col justify-between transition-all hover:scale-[1.02] shadow-lg">
+                                    <div>
+                                        <div className="text-5xl mb-3">👨‍🎓</div>
+                                        <h2 className="text-2xl font-bold text-sky-400 mb-2">Dành cho Học Sinh</h2>
+                                        <p className="text-gray-400 text-sm leading-relaxed mb-6">
+                                            Đăng nhập bằng đúng Họ và Tên giáo viên đã cung cấp để vào sàn thi đấu, nhận câu hỏi và nhập đáp án trực tiếp.
+                                        </p>
+                                    </div>
+                                    <button 
+                                        onClick={() => setRole('student_login')}
+                                        className="w-full py-3.5 bg-sky-500 hover:bg-sky-400 text-white font-black rounded-xl shadow-[0_0_15px_rgba(56,189,248,0.4)] transition-all"
+                                    >
+                                        Đăng Nhập Thi Đấu
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // =========================================================================
+            // 2. MÀN HÌNH HỌC SINH ĐĂNG NHẬP TÊN
+            // =========================================================================
+            if (role === 'student_login') {
+                return (
+                    <div className="h-full flex items-center justify-center p-4">
+                        <div className="bg-[#0b132c] p-8 rounded-2xl border border-blue-800/60 shadow-2xl w-full max-w-md animate-fade-in">
+                            <div className="flex justify-between items-center mb-6">
+                                <button onClick={() => setRole('select')} className="text-xs text-gray-400 hover:text-white flex items-center gap-1 bg-slate-800 px-3 py-1.5 rounded-lg">
+                                    ← Quay lại
+                                </button>
+                                <span className="text-xs font-bold text-sky-400 uppercase tracking-wider">Cổng Học Sinh</span>
+                            </div>
+
+                            <div className="text-center mb-6">
+                                <div className="text-5xl mb-3">🎓</div>
+                                <h1 className="text-2xl font-black text-white">ĐĂNG NHẬP SÀN THI ĐẤU</h1>
+                                <p className="text-gray-400 text-xs mt-1">Nhập đúng tên giáo viên đã cung cấp trong danh sách lớp</p>
+                            </div>
+
+                            <form onSubmit={handleStudentLogin} className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-300 uppercase mb-2">Họ và Tên học sinh:</label>
+                                    <input 
+                                        type="text"
+                                        value={loginName}
+                                        onChange={(e) => setLoginName(e.target.value)}
+                                        placeholder="Ví dụ: Nguyễn Văn An"
+                                        className="w-full p-3.5 bg-slate-800/90 border border-blue-700/60 rounded-xl text-white font-semibold focus:outline-none focus:border-sky-400"
+                                    />
+                                </div>
+
+                                {loginError && (
+                                    <div className="p-3 bg-red-900/50 border border-red-500/60 rounded-xl text-red-300 text-xs font-medium">
+                                        ⚠️ {loginError}
+                                    </div>
+                                )}
+
+                                <button 
+                                    type="submit"
+                                    className="w-full py-3.5 bg-sky-500 hover:bg-sky-400 text-white font-black rounded-xl shadow-[0_0_15px_rgba(56,189,248,0.4)] transition-all"
+                                >
+                                    Vào Sàn Thi Đấu
+                                </button>
+                            </form>
+
+                            {/* Gợi ý tên có trong danh sách để dễ kiểm tra */}
+                            {!cloudState.isSetup && students.length > 0 && (
+                                <div className="mt-6 pt-4 border-t border-slate-800">
+                                    <div className="text-xs text-gray-400 mb-2 font-semibold">Danh sách tên hợp lệ giáo viên đã tạo (Nhấp để chọn nhanh):</div>
+                                    <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto custom-scroll">
+                                        {students.map(s => (
+                                            <button 
+                                                key={s.id}
+                                                type="button"
+                                                onClick={() => setLoginName(s.name)}
+                                                className="text-xs px-2.5 py-1 bg-slate-800 hover:bg-sky-600 text-gray-300 hover:text-white rounded-md transition-colors"
+                                            >
+                                                {s.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
+
+            // =========================================================================
+            // 3. MÀN HÌNH HỌC SINH THI ĐẤU & NHẬP ĐÁP ÁN
+            // =========================================================================
+            if (role === 'student_play') {
+                const me = students.find(s => s.id === currentStudentId);
+                if (!me) {
+                    return (
+                        <div className="h-full flex items-center justify-center p-4">
+                            <div className="bg-[#0b132c] p-8 rounded-2xl border border-blue-800 text-center max-w-md">
+                                <p className="text-gray-300 mb-4">Danh sách lớp đã được giáo viên làm mới.</p>
+                                <button onClick={() => setRole('student_login')} className="px-6 py-2.5 bg-sky-500 rounded-xl font-bold">Đăng nhập lại</button>
+                            </div>
+                        </div>
+                    );
+                }
+
+                const mySavedAns = answers[me.id] || "";
+                const amICorrect = isStudentCorrect(me.id);
+
+                return (
+                    <div className="h-full flex flex-col p-4 max-w-3xl mx-auto">
+                        {/* Top Bar Học sinh */}
+                        <div className="flex justify-between items-center bg-[#0b132c] px-5 py-3.5 rounded-2xl border border-blue-800/60 mb-4 shrink-0">
+                            <div className="flex items-center gap-3">
+                                <span className="w-9 h-9 rounded-full bg-sky-500 flex items-center justify-center font-black text-white">
+                                    {me.num}
+                                </span>
+                                <div>
+                                    <div className="font-black text-white text-base">{me.name}</div>
+                                    <div className="text-xs flex items-center gap-2">
+                                        {me.active ? (
+                                            <span className="text-emerald-400 font-bold">● Đang trên sàn thi đấu</span>
+                                        ) : (
+                                            <span className="text-red-400 font-bold">● Đã bị loại khỏi sàn</span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <div className="px-4 py-1.5 bg-yellow-500/20 border border-yellow-500/50 rounded-xl text-yellow-400 font-black">
+                                    Điểm: {me.score}đ
+                                </div>
+                                <button 
+                                    onClick={() => setRole('select')}
+                                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-gray-300 text-xs font-bold rounded-lg"
+                                >
+                                    Đổi vai trò
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Nội dung câu hỏi & nhập đáp án */}
+                        <div className="bg-[#0b132c] rounded-2xl p-6 border border-blue-800/60 shadow-xl flex-1 flex flex-col justify-between overflow-y-auto custom-scroll">
+                            <div className="flex justify-between items-center border-b border-blue-900/60 pb-4 mb-4">
+                                <span className="px-4 py-1 bg-blue-900/50 border border-blue-500/40 rounded-full text-sky-300 font-bold text-sm">
+                                    Câu hỏi {currentQ + 1} / {QUESTIONS.length}
+                                </span>
+                                <div className={`px-4 py-1 rounded-full font-black text-lg ${timeLeft <= 5 && gameState === 'running' ? 'bg-red-600 text-white animate-pulse' : 'bg-slate-800 text-yellow-400'}`}>
+                                    ⏱ {timeLeft} giây
+                                </div>
+                            </div>
+
+                            {gameState === 'ready' && (
+                                <div className="my-auto text-center py-8 animate-fade-in">
+                                    <div className="text-6xl mb-4">🔔</div>
+                                    <h2 className="text-2xl font-bold text-white mb-2">Chuẩn bị sang Câu hỏi số {currentQ + 1}</h2>
+                                    <p className="text-gray-400 text-sm">Hãy chú ý lên màn hình chính. Ô nhập đáp án sẽ mở ngay khi Giáo viên bấm bắt đầu!</p>
+                                </div>
+                            )}
+
+                            {gameState !== 'ready' && (
+                                <div className="my-auto space-y-6 animate-fade-in">
+                                    <div className="bg-slate-900/90 p-5 rounded-2xl border border-blue-800/50">
+                                        <div className="text-xs text-yellow-400 font-bold uppercase mb-2">Nội dung câu hỏi:</div>
+                                        <h2 className="text-2xl font-bold text-white leading-relaxed">{QUESTIONS[currentQ].q}</h2>
+                                        <div className="text-xs text-sky-300/80 mt-2 italic">💡 Gợi ý định dạng: {QUESTIONS[currentQ].hint}</div>
+                                    </div>
+
+                                    {!me.active ? (
+                                        <div className="p-5 bg-slate-800/70 border border-slate-600 rounded-2xl text-center">
+                                            <div className="text-2xl mb-1">😢</div>
+                                            <div className="font-bold text-gray-300">Em đã rời sàn thi đấu!</div>
+                                            <div className="text-xs text-gray-400 mt-1">Hãy cổ vũ các bạn và chờ quyền Cứu trợ từ Giáo viên nhé.</div>
+                                        </div>
+                                    ) : (
+                                        <form onSubmit={handleStudentSubmitAnswer} className="space-y-3">
+                                            <label className="block text-sm font-bold text-sky-300 uppercase">
+                                                Nhập đáp án của em:
+                                            </label>
+                                            <div className="flex gap-3">
+                                                <input 
+                                                    type="text"
+                                                    disabled={gameState !== 'running' || timeLeft === 0}
+                                                    value={myAnswer}
+                                                    onChange={(e) => setMyAnswer(e.target.value)}
+                                                    placeholder="Nhập câu trả lời tại đây..."
+                                                    className="flex-1 p-4 bg-slate-800 border-2 border-sky-500/60 rounded-xl text-white text-lg font-bold focus:outline-none focus:border-yellow-400 disabled:opacity-50"
+                                                />
+                                                <button 
+                                                    type="submit"
+                                                    disabled={gameState !== 'running' || timeLeft === 0 || !myAnswer.trim()}
+                                                    className="px-8 py-4 bg-sky-500 hover:bg-sky-400 disabled:bg-slate-700 text-white font-black rounded-xl shadow-lg transition-all"
+                                                >
+                                                    Gửi Đáp Án
+                                                </button>
+                                            </div>
+
+                                            {mySavedAns && (
+                                                <div className="p-3 bg-sky-900/40 border border-sky-500/50 rounded-xl flex justify-between items-center">
+                                                    <span className="text-xs text-sky-300">Đáp án đã ghi nhận trên bảng Giáo viên:</span>
+                                                    <span className="font-black text-white text-base bg-sky-600 px-3 py-0.5 rounded-lg">{mySavedAns}</span>
+                                                </div>
+                                            )}
+                                        </form>
+                                    )}
+
+                                    {gameState === 'locked' && (
+                                        <div className={`p-5 rounded-2xl border-2 animate-fade-in ${amICorrect ? 'bg-sky-900/40 border-sky-400' : 'bg-slate-800/80 border-slate-600'}`}>
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-sm font-bold uppercase tracking-wider text-green-400">
+                                                    ✓ Đáp án chính xác: {QUESTIONS[currentQ].a}
+                                                </span>
+                                                {me.active && (
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-black ${amICorrect ? 'bg-sky-500 text-white' : 'bg-slate-700 text-gray-300'}`}>
+                                                        {amICorrect ? '🎉 Trả lời ĐÚNG (+10đ)' : '❌ Trả lời SAI'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="text-center text-xs text-gray-500 pt-4 border-t border-slate-800/80">
+                                Hệ thống Rung Chuông Vàng Hóa 12 (Chương 3) • Đồng bộ trực tiếp với màn hình Giáo viên
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // =========================================================================
+            // 4. MÀN HÌNH GIÁO VIÊN CÀI ĐẶT DANH SÁCH LỚP
+            // =========================================================================
+            if (cloudState.isSetup) {
+                return (
+                    <div className="h-full flex items-center justify-center p-4">
+                        <div className="bg-[#0b132c] p-8 rounded-2xl border border-blue-800/60 shadow-xl w-full max-w-2xl text-center animate-fade-in">
+                            <div className="flex justify-between items-center mb-2">
+                                <button onClick={() => setRole('select')} className="text-xs text-gray-400 hover:text-white bg-slate-800 px-3 py-1.5 rounded-lg">
+                                    ← Chọn vai trò
+                                </button>
+                                <span className="text-xs text-yellow-400 font-bold uppercase">Chế độ Giáo Viên • Hóa 12</span>
+                            </div>
+                            <div className="text-5xl mb-3">🔔</div>
+                            <h1 className="text-3xl font-black text-sky-400 mb-2 drop-shadow-md">CÀI ĐẶT DANH SÁCH LỚP 12</h1>
+                            <p className="text-xs text-gray-400 mb-5">Học sinh sẽ phải đăng nhập đúng tên trong danh sách này mới được vào thi đấu</p>
+                            
+                            <div className="text-left mb-6">
+                                <label className="block text-gray-300 mb-2 font-bold text-sm">Nhập danh sách học sinh (Mỗi dòng 1 họ tên):</label>
+                                <textarea 
+                                    className="w-full h-56 p-4 bg-slate-800/80 border border-blue-800/50 rounded-xl text-white focus:outline-none focus:border-sky-500 custom-scroll shadow-inner font-medium"
+                                    placeholder="Nguyễn Văn An&#10;Trần Thị Bình&#10;..."
+                                    value={studentInput}
+                                    onChange={(e) => setStudentInput(e.target.value)}
+                                ></textarea>
+                            </div>
+                            <button 
+                                onClick={handleStartSetup}
+                                disabled={!studentInput.trim()}
+                                className="px-10 py-3.5 bg-sky-500 hover:bg-sky-400 text-white text-lg font-bold rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(56,189,248,0.4)] hover:scale-105"
+                            >
+                                Khởi tạo Sàn Thi Đấu ({studentInput.split('\n').filter(n => n.trim() !== "").length} HS)
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // =========================================================================
+            // 5. MÀN HÌNH CHÍNH CỦA GIÁO VIÊN
+            // =========================================================================
+            return (
+                <div className="h-full flex flex-col p-4 max-w-[1600px] mx-auto relative">
+                    {/* Header */}
+                    <div className="flex justify-between items-center mb-3 border-b border-blue-800/50 pb-3 shrink-0">
+                        <div className="flex items-center gap-3">
+                            <div className="text-3xl">🔔</div>
+                            <h1 className="text-2xl font-black text-yellow-400 tracking-wide drop-shadow-md">RUNG CHUÔNG VÀNG</h1>
+                            <div className="ml-3 px-3 py-1 bg-[#0f172a] border border-blue-800 rounded-full text-xs text-gray-300 font-medium">
+                                Lớp 12 • Chương 3: Hợp Chất Chứa Nitrogen (Amine - Amino Acid - Peptide - Protein)
+                            </div>
+                            <button 
+                                onClick={() => updateGameState({ isSetup: true })}
+                                className="px-3 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-full text-xs text-sky-300 font-semibold transition-colors"
+                            >
+                                ✎ Sửa danh sách ({students.length} HS)
+                            </button>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <button 
+                                onClick={() => setPreviewStudentMode(!previewStudentMode)}
+                                className="px-3.5 py-1.5 bg-sky-600/30 hover:bg-sky-600/50 border border-sky-400/50 rounded-full text-xs text-sky-300 font-bold transition-all"
+                            >
+                                {previewStudentMode ? 'Đóng khung giả lập HS' : '📱 Mở khung Học Sinh nhập đáp án (Thử nghiệm)'}
+                            </button>
+                            <button 
+                                onClick={() => setRole('student_login')}
+                                className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-full text-xs text-gray-300 font-bold"
+                            >
+                                Sang màn hình HS
+                            </button>
+                            <div className="px-4 py-1.5 border-2 border-yellow-500 bg-yellow-500/10 rounded-full text-yellow-400 text-sm font-bold tracking-widest">
+                                CÂU {currentQ + 1} / {QUESTIONS.length}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Khung Giả lập Học sinh ngay trên màn hình Giáo viên để dễ dạy & test trên 1 máy */}
+                    {previewStudentMode && (
+                        <div className="mb-3 bg-slate-900/95 border-2 border-sky-500 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shrink-0 animate-fade-in shadow-lg">
+                            <div className="flex items-center gap-2 text-xs font-bold text-sky-300">
+                                <span>📱 GIẢ LẬP HỌC SINH TRẢ LỜI TRÊN 1 MÁY:</span>
+                                <select 
+                                    value={currentStudentId || ""}
+                                    onChange={(e) => setCurrentStudentId(e.target.value)}
+                                    className="bg-slate-800 border border-blue-700 rounded-lg px-2.5 py-1.5 text-white font-bold"
+                                >
+                                    <option value="">-- Chọn tên học sinh --</option>
+                                    {students.filter(s => s.active).map(s => (
+                                        <option key={s.id} value={s.id}>{s.num}. {s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <form onSubmit={handleStudentSubmitAnswer} className="flex items-center gap-2 flex-1 max-w-xl">
+                                <input 
+                                    type="text"
+                                    value={myAnswer}
+                                    onChange={(e) => setMyAnswer(e.target.value)}
+                                    disabled={!currentStudentId || gameState !== 'running'}
+                                    placeholder={gameState === 'running' ? "Nhập đáp án của học sinh đang chọn..." : "Hãy bấm 'Bắt đầu Câu' để mở ô nhập đáp án"}
+                                    className="flex-1 px-3 py-1.5 bg-slate-800 border border-sky-500/50 rounded-lg text-white text-xs font-bold disabled:opacity-50"
+                                />
+                                <button 
+                                    type="submit"
+                                    disabled={!currentStudentId || gameState !== 'running' || !myAnswer.trim()}
+                                    className="px-4 py-1.5 bg-sky-500 hover:bg-sky-400 disabled:bg-slate-700 text-white text-xs font-bold rounded-lg"
+                                >
+                                    Gửi đáp án
+                                </button>
+                            </form>
+                        </div>
+                    )}
+
+                    {/* Main Content Grid */}
+                    <div className="grid grid-cols-12 gap-4 flex-1 min-h-0">
+                        
+                        {/* Cột trái (Giao diện chính) */}
+                        <div className="col-span-9 flex flex-col gap-3 min-h-0">
+                            
+                            {/* Khu vực hiển thị Câu hỏi & Thời gian */}
+                            <div className="bg-[#0b132c] rounded-xl p-5 border border-blue-800/60 shadow-xl flex gap-4 h-52 shrink-0 relative overflow-hidden">
+                                <div className="w-3/4 flex flex-col justify-center relative z-10 pr-4">
+                                    <div className="text-yellow-400 font-bold text-xs tracking-widest uppercase mb-2 flex items-center gap-3">
+                                        <span>⚡ {gameState === 'ready' ? 'SẴN SÀNG' : (gameState === 'running' ? 'HỌC SINH ĐANG NHẬP ĐÁP ÁN' : 'KẾT QUẢ & CHẤM ĐÁP ÁN')}</span>
+                                        {gameState !== 'ready' && (
+                                            <span className="px-2.5 py-0.5 bg-sky-900/70 border border-sky-500/40 rounded-full text-sky-300">
+                                                Đã gửi bài: {answeredCount}/{activeCount} HS
+                                            </span>
+                                        )}
+                                    </div>
+                                    
+                                    {gameState === 'ready' ? (
+                                        <div className="animate-fade-in">
+                                            <h2 className="text-3xl font-bold text-white mb-2">Mời cả lớp chuẩn bị Câu {currentQ + 1}!</h2>
+                                            <p className="text-gray-400 text-sm leading-relaxed">
+                                                Hiện có <strong className="text-sky-400">{activeCount} học sinh</strong> đang trên sàn thi đấu. Giáo viên bấm <strong className="text-yellow-400">"Bắt đầu Câu {currentQ + 1}"</strong> để mở câu hỏi và ô nhập đáp án cho học sinh.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col h-full justify-center animate-fade-in">
+                                            <h2 className="text-2xl font-bold text-white mb-3 leading-snug">{QUESTIONS[currentQ].q}</h2>
+                                            {gameState === 'locked' && (
+                                                <div className="p-3 bg-green-900/40 border border-green-500/50 rounded-xl animate-fade-in flex items-center justify-between">
+                                                    <p className="text-green-400 font-bold text-lg flex items-center gap-2">
+                                                        <span className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">✓</span> 
+                                                        Đáp án: {QUESTIONS[currentQ].a}
+                                                    </p>
+                                                    <div className="flex gap-3 text-xs font-bold">
+                                                        <span className="px-3 py-1 bg-sky-500/20 border border-sky-400 text-sky-300 rounded-lg">
+                                                            Đúng (Xanh): {activeCorrectCount} HS
+                                                        </span>
+                                                        <span className="px-3 py-1 bg-slate-700/60 border border-slate-500 text-gray-300 rounded-lg">
+                                                            Sai / Chưa nộp (Xám): {activeWrongCount} HS
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                {/* Đồng hồ đếm ngược */}
+                                <div className="w-1/4 flex flex-col items-center justify-center relative z-10 border-l border-blue-800/50 pl-4">
+                                    <div className="relative w-32 h-32 flex items-center justify-center">
+                                        <svg className="absolute inset-0 w-full h-full transform -rotate-90 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]" viewBox="0 0 144 144">
+                                            <circle cx="72" cy="72" r="62" stroke="#1e293b" strokeWidth="8" fill="none" />
+                                            <circle 
+                                                cx="72" cy="72" r="62" 
+                                                stroke={timeLeft <= 5 ? '#ef4444' : '#facc15'} 
+                                                strokeWidth="8" fill="none" 
+                                                strokeDasharray="390" 
+                                                strokeDashoffset={390 - (timeLeft/TIME_LIMIT)*390} 
+                                                className="timer-circle" 
+                                                strokeLinecap="round" 
+                                            />
+                                        </svg>
+                                        <div className={`text-5xl font-black ${timeLeft <= 5 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
+                                            {timeLeft}
+                                        </div>
+                                    </div>
+                                    <div className="text-gray-400 font-bold text-xs mt-2 tracking-widest">GIÂY</div>
+                                </div>
+                            </div>
+
+                            {/* Sàn thi đấu (Lưới học sinh + Hiển thị đáp án từng em) */}
+                            <div className="bg-[#0b132c] rounded-xl p-4 border border-blue-800/60 shadow-xl flex-1 flex flex-col min-h-0">
+                                <div className="flex justify-between items-center mb-3 shrink-0">
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                        <h3 className="text-yellow-400 font-bold text-xs tracking-widest uppercase bg-yellow-400/10 px-3 py-1 rounded">SÀN THI ĐẤU & ĐÁP ÁN HỌC SINH</h3>
+                                        <span className="text-gray-300 text-xs flex items-center gap-3">
+                                            <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-sky-500 inline-block"></span> Xanh da trời: Trả lời ĐÚNG</span>
+                                            <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-slate-700 inline-block"></span> Xám: Trả lời SAI / Đã loại</span>
+                                        </span>
+                                    </div>
+                                    <span className="text-[11px] text-sky-300 italic">
+                                        {gameState === 'locked' ? '💡 Nhấp vào ô HS để đổi Đúng (Xanh) ↔ Sai (Xám) nếu muốn chấm lại' : '💡 Nhấp vào ô HS để Loại / Khôi phục'}
+                                    </span>
+                                </div>
+                                
+                                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2.5 overflow-y-auto custom-scroll pr-1 flex-1 pb-2 content-start">
+                                    {students.map(s => {
+                                        const ansText = answers[s.id] || "";
+                                        const isCorrect = isStudentCorrect(s.id);
+
+                                        // Quyết định màu sắc của ô học sinh:
+                                        // 1. Nếu đã bị loại khỏi sàn (!s.active): Màu xám mờ + gạch ngang tên
+                                        // 2. Nếu đã Chốt câu (locked): Đúng -> Màu Xanh da trời (sky), Sai -> Màu Xám (slate)
+                                        // 3. Khi đang làm bài: Đang trên sàn -> Màu Xanh da trời
+                                        let cardStyle = "";
+                                        if (!s.active) {
+                                            cardStyle = "bg-slate-900/70 border-slate-800 text-slate-500 opacity-50";
+                                        } else if (gameState === 'locked') {
+                                            if (isCorrect) {
+                                                cardStyle = "bg-gradient-to-b from-sky-400 to-sky-600 border-sky-200 shadow-[0_0_15px_rgba(56,189,248,0.45)] text-white";
+                                            } else {
+                                                cardStyle = "bg-slate-700/90 border-slate-500 text-slate-300";
+                                            }
+                                        } else {
+                                            cardStyle = "bg-gradient-to-b from-sky-500 to-sky-700 border-sky-400/80 shadow-[0_4px_12px_rgba(56,189,248,0.2)] text-white";
+                                        }
+
+                                        return (
+                                            <button 
+                                                key={s.id} 
+                                                onClick={() => handleTeacherClickStudent(s)}
+                                                className={`student-btn rounded-xl p-2 flex flex-col justify-between border-2 h-24 text-left relative overflow-hidden ${cardStyle}`}
+                                            >
+                                                {/* Hàng trên: STT + Trạng thái Online + Điểm */}
+                                                <div className="w-full flex justify-between items-center">
+                                                    <span className="font-black text-xs flex items-center gap-1">
+                                                        #{s.num}
+                                                        {s.joined && <span title="Đã đăng nhập" className="w-2 h-2 rounded-full bg-green-300 inline-block"></span>}
+                                                    </span>
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-black/25">
+                                                        {s.score}đ
+                                                    </span>
+                                                </div>
+
+                                                {/* Giữa: Họ và Tên học sinh */}
+                                                <div className={`text-xs font-bold w-full truncate leading-tight my-0.5 ${!s.active ? 'line-through text-slate-500' : ''}`}>
+                                                    {s.name}
+                                                </div>
+
+                                                {/* Hàng dưới: Ô hiển thị đáp án của học sinh */}
+                                                <div className={`w-full px-1.5 py-1 rounded text-[11px] font-bold truncate text-center ${
+                                                    !s.active 
+                                                        ? 'bg-slate-950/60 text-slate-600' 
+                                                        : gameState === 'locked'
+                                                            ? (isCorrect ? 'bg-sky-950/60 text-yellow-300 border border-sky-300/40' : 'bg-slate-800 text-slate-400 line-through')
+                                                            : (ansText ? 'bg-yellow-400 text-black' : 'bg-black/20 text-sky-200/70')
+                                                }`}>
+                                                    {!s.active 
+                                                        ? 'Đã bị loại' 
+                                                        : gameState === 'running' 
+                                                            ? (ansText ? 'Đã nộp Đ.Án' : 'Đang suy nghĩ...') 
+                                                            : gameState === 'locked'
+                                                                ? (ansText ? `Đ.A: ${ansText}` : 'Không trả lời')
+                                                                : 'Sẵn sàng'}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Bảng Điều khiển của Giáo viên (Controls) */}
+                            <div className="bg-[#0b132c] rounded-xl p-3.5 border border-blue-800/60 shadow-xl flex flex-wrap gap-2.5 items-center shrink-0">
+                                <button onClick={startQuestion} disabled={gameState !== 'ready'} 
+                                    className={`px-5 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2 transition-all 
+                                    ${gameState === 'ready' ? 'bg-yellow-500 text-black hover:bg-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.3)]' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>
+                                    <span>▶</span> 1. Bắt đầu Câu {currentQ + 1}
+                                </button>
+                                
+                                <button onClick={lockAnswer} disabled={gameState !== 'running'} 
+                                    className={`px-5 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2 transition-all
+                                    ${gameState === 'running' ? 'bg-sky-500 text-white hover:bg-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.4)]' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>
+                                    <span>✓</span> 2. Chốt & Chấm Đáp Án
+                                </button>
+
+                                <button onClick={eliminateWrongStudents} disabled={gameState !== 'locked' || activeWrongCount === 0} 
+                                    className={`px-5 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2 transition-all
+                                    ${gameState === 'locked' && activeWrongCount > 0 ? 'bg-rose-600 text-white hover:bg-rose-500 shadow-[0_0_15px_rgba(225,29,72,0.4)] animate-pulse' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>
+                                    <span>✖</span> 3. Xóa tên HS trả lời sai ({activeWrongCount})
+                                </button>
+
+                                <button onClick={nextQuestion} disabled={gameState !== 'locked' || currentQ === QUESTIONS.length - 1} 
+                                    className={`px-5 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2 transition-all
+                                    ${gameState === 'locked' && currentQ < QUESTIONS.length - 1 ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-[0_0_15px_rgba(5,150,105,0.4)]' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>
+                                    4. Câu tiếp theo <span>⏭</span>
+                                </button>
+                                
+                                <div className="flex-1"></div>
+                                
+                                <button onClick={rescueAll} className="px-4 py-2.5 bg-[#4c1d95]/40 hover:bg-[#4c1d95]/70 text-purple-300 border border-purple-600/50 rounded-lg font-bold text-sm flex items-center gap-1.5 transition-all">
+                                    <span>🚁</span> Cứu trợ
+                                </button>
+                            </div>
+
+                        </div>
+
+                        {/* Cột Phải (Thống kê & Tiến trình) */}
+                        <div className="col-span-3 flex flex-col gap-3 min-h-0">
+                            
+                            {/* Khối Thống kê số người */}
+                            <div className="bg-[#0b132c] rounded-xl p-5 border border-blue-800/60 shadow-xl text-center relative overflow-hidden shrink-0">
+                                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-transparent via-yellow-400 to-transparent opacity-70"></div>
+                                <h3 className="text-yellow-400 font-bold text-xs tracking-widest mb-2 uppercase">Học sinh trên sàn</h3>
+                                <div className="text-5xl font-black mb-1 flex justify-center items-baseline gap-1">
+                                    <span className={`drop-shadow-[0_0_12px_rgba(255,255,255,0.4)] ${activeCount === 0 ? 'text-red-500' : 'text-sky-400'}`}>
+                                        {activeCount}
+                                    </span>
+                                    <span className="text-slate-600 text-3xl">/{students.length}</span>
+                                </div>
+                                <div className="text-[11px] text-gray-400 font-medium">
+                                    Đã đăng nhập vào phòng: <strong className="text-green-400">{students.filter(s => s.joined).length} HS</strong>
+                                </div>
+                            </div>
+
+                            {/* Danh sách mốc câu hỏi */}
+                            <div className="bg-[#0b132c] rounded-xl p-4 border border-blue-800/60 shadow-xl flex-1 flex flex-col min-h-0 relative">
+                                <h3 className="text-yellow-400 font-bold text-xs tracking-widest mb-3 flex items-center gap-2 uppercase">
+                                    <span>🏆</span> Hành trình 12 Câu Hỏi
+                                </h3>
+                                
+                                <div className="flex-1 overflow-y-auto custom-scroll pr-2 flex flex-col-reverse gap-2">
+                                    {QUESTIONS.map((q, idx) => {
+                                        const isCurrent = currentQ === idx;
+                                        const isPassed = currentQ > idx;
+                                        const isLast = idx === QUESTIONS.length - 1;
+                                        
+                                        return (
+                                            <div key={idx} className={`p-3 rounded-xl border flex items-center gap-3 transition-all duration-300
+                                                ${isCurrent ? 'bg-blue-900/60 border-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.3)]' 
+                                                : isPassed ? 'bg-green-900/20 border-green-800/40 opacity-70' 
+                                                : 'bg-[#0f172a]/50 border-slate-800 text-slate-500'}`}>
+                                                
+                                                <div className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-xs
+                                                    ${isCurrent ? 'bg-sky-500 text-white' 
+                                                    : isPassed ? 'bg-green-700/60 text-green-300' 
+                                                    : 'bg-slate-800 text-slate-600'}`}>
+                                                    {idx + 1}
+                                                </div>
+                                                
+                                                <div className={`flex-1 font-bold text-xs ${isCurrent ? 'text-white' : ''}`}>
+                                                    {isLast ? 'Câu Chuông Vàng' : `Câu hỏi số ${idx + 1}`}
+                                                </div>
+                                                
+                                                {isLast && <span className={`text-xl ${isPassed || isCurrent ? 'text-yellow-400 animate-bounce' : 'text-slate-600'}`}>🔔</span>}
+                                                {isPassed && !isLast && <span className="text-green-500 font-bold text-xs">✓</span>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
